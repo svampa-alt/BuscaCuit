@@ -4,6 +4,7 @@ import csv
 import hashlib
 import io
 import json
+import re
 import tempfile
 import urllib.request
 import zipfile
@@ -38,14 +39,24 @@ def choose_sample(resources):
 
 
 def choose_full(resources):
-    candidates = [r for r in resources if r.get("url", "").startswith("https://")
-                  and r.get("format", "").lower() in ("csv", "zip")
-                  and "muestreo" not in (r.get("name", "") + " " + r.get("description", "")).lower()
-                  and ("sociedades" in (r.get("name", "") + " " + r.get("url", "")).lower())]
-    if len(candidates) != 1:
-        raise ValueError(f"Recurso completo ambiguo: {len(candidates)} candidatos: "
-                         + json.dumps([{"name": x.get("name"), "url": x.get("url")} for x in candidates]))
-    return candidates[0]
+    """Selecciona la version anual mas reciente; no mezcla historicos ni asociaciones."""
+    candidates = []
+    for r in resources:
+        name = r.get("name", "")
+        label = name.lower()
+        match = re.fullmatch(r"registro nacional de sociedades\\s*-\\s*(20\\d{2})(?:\\s*-\\s*semestre\\s*([12]))?", label.strip())
+        if (match and r.get("url", "").startswith("https://")
+                and r.get("format", "").lower() in ("csv", "zip")):
+            year = int(match.group(1))
+            semester = int(match.group(2) or 2)
+            candidates.append(((year, semester), r))
+    if not candidates:
+        raise ValueError("No se encontro registro societario anual oficial compatible")
+    latest = max(key for key, _ in candidates)
+    winners = [r for key, r in candidates if key == latest]
+    if len(winners) != 1:
+        raise ValueError(f"Hay {len(winners)} recursos para el periodo {latest}")
+    return winners[0]
 
 
 def download(url, destination):
