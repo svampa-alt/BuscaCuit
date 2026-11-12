@@ -4,7 +4,10 @@ import csv
 import json
 import re
 from pathlib import Path
-from scripts.cruce_sociedades import norm, tokens
+try:
+    from scripts.cruce_sociedades import norm, tokens
+except ModuleNotFoundError:
+    from cruce_sociedades import norm, tokens
 
 CUIT = re.compile(r"(?<!\\d)\\d{2}[- ]?\\d{8}[- ]?\\d(?!\\d)")
 ALIASES = {
