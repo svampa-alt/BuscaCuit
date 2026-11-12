@@ -1,0 +1,20 @@
+name: Diagnostico independiente de runner
+on:
+  push:
+    branches:
+      - feat/ranking-contextual-geografico
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnostico:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Confirmar disponibilidad de runner
+        run: |
+          echo "RUNNER_OK"
+          python3 --version
+      - uses: actions/checkout@v4
+      - name: Ejecutar pruebas de ranking
+        run: python3 -m unittest discover -s tests -p 'test_ranking_contextual.py' -v
