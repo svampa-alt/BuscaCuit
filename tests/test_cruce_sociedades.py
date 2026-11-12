@@ -37,7 +37,7 @@ class CruceSociedadesTests(unittest.TestCase):
     def test_lectura_csv_evidencia(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "arca.csv"
-            path.write_text("cuit,razon_social\\n30123456789,El Nido SRL\\n", encoding="utf-8")
+            path.write_text("cuit,razon_social\n30123456789,El Nido SRL\n", encoding="utf-8")
             evidence = load_evidence([path])
             self.assertEqual(len(evidence), 1)
             self.assertEqual(evidence[0]["source_file"], "arca.csv")
