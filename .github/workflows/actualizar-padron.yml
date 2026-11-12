@@ -1,5 +1,10 @@
 name: Descargar y validar padrón ARCA
 on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/actualizar-padron.yml'
+      - 'scripts/descargar_padron.py'
   workflow_dispatch:
   schedule:
     - cron: '15 9 * * 1'
