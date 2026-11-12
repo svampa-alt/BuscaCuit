@@ -63,7 +63,8 @@ def main(argv=None):
         if not archive:
             raise RuntimeError("No se pudo descargar el padrón: "+"; ".join(errors))
         dbpath = args.salida / "padron.sqlite"
-        conn = sqlite3.connect(dbpath)
+        staged = Path(temp) / "padron.sqlite"
+        conn = sqlite3.connect(staged)
         conn.execute("DROP TABLE IF EXISTS contribuyentes")
         conn.execute("CREATE TABLE contribuyentes(cuit TEXT PRIMARY KEY, denominacion TEXT NOT NULL)")
         count = 0
@@ -90,6 +91,7 @@ def main(argv=None):
         conn.close()
         if distinct < 100000:
             raise ValueError(f"Cantidad sospechosa de registros: {distinct}; revisar formato antes de usar")
+        os.replace(staged, dbpath)
         metadata = {"fuente":archive,"fecha_utc":datetime.now(timezone.utc).isoformat(),"registros_leidos":count,"cuit_distintos":distinct,"archivo":"padron.sqlite","modo":"manual" if args.archivo else "automatico"}
         (args.salida/"metadata.json").write_text(json.dumps(metadata,ensure_ascii=False,indent=2),encoding="utf-8")
         print(json.dumps(metadata,ensure_ascii=False))
