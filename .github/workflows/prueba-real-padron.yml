@@ -1,0 +1,37 @@
+name: Prueba real de consulta al padrón
+on:
+  push:
+    paths:
+      - '.github/workflows/prueba-real-padron.yml'
+  workflow_dispatch:
+jobs:
+  consultar:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recuperar padrón verificado
+        uses: actions/download-artifact@v4
+        with:
+          name: buscacuit-padron
+          run-id: 43200792299
+          github-token: ${{ github.token }}
+          path: output
+      - name: Validar integridad y buscar El Nido
+        run: |
+          python - <<'PY'
+          import sqlite3,json,os,re
+          p='output/padron.sqlite'
+          assert os.path.isfile(p), 'Falta la base'
+          con=sqlite3.connect('file:'+p+'?mode=ro',uri=True)
+          n=con.execute('select count(*) from contribuyentes').fetchone()[0]
+          assert n==6206844, f'Cantidad inesperada: {n}'
+          print('CUIT distintos:',n)
+          for q in ('EL NIDO','NIDO'):
+              rows=con.execute('select cuit,denominacion from contribuyentes where upper(denominacion) like ? limit 30',('%'+q+'%',)).fetchall()
+              print('CONSULTA',repr(q),'coincidencias mostradas:',len(rows))
+              print(json.dumps([{'cuit':c,'denominacion':d} for c,d in rows],ensure_ascii=False))
+          print('NOTA: Coincidencia nominal NO acredita titularidad de El Nido Bar, Costa Rica 5709')
+          PY
