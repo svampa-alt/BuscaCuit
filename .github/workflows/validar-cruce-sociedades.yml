@@ -1,0 +1,31 @@
+name: Validar cruce societario
+on:
+  pull_request:
+    paths:
+      - 'scripts/cruce_sociedades.py'
+      - 'tests/test_cruce_sociedades.py'
+      - '.github/workflows/validar-cruce-sociedades.yml'
+  push:
+    paths:
+      - 'scripts/cruce_sociedades.py'
+      - 'tests/test_cruce_sociedades.py'
+      - '.github/workflows/validar-cruce-sociedades.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pruebas de ranking y fuentes
+        run: python -m unittest discover -s tests -v
+      - name: Cruce real Sociedades y GCBA
+        run: python scripts/cruce_sociedades.py --name 'El Nido' --address 'Costa Rica 5709' --city Palermo --province CABA --gcba --output output/cruce_sociedades.json
+      - name: Subir solo resumen de ejecucion
+        if: always()
+        run: python -c "import json,pathlib; p=pathlib.Path('output/cruce_sociedades.json'); print('Cruce completado' if p.exists() else 'Cruce no generado')"
