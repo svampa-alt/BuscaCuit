@@ -1,6 +1,11 @@
 name: Validar fuente Registro Nacional de Sociedades
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/fuente_sociedades.py'
+      - 'tests/test_fuente_sociedades.py'
+      - '.github/workflows/validar-fuente-sociedades.yml'
   push:
     paths:
       - 'scripts/fuente_sociedades.py'
@@ -10,11 +15,11 @@ permissions:
   contents: read
 concurrency:
   group: sociedades-fuente-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   validar:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -22,12 +27,15 @@ jobs:
           python-version: '3.12'
       - name: Pruebas unitarias
         run: python -m unittest discover -s tests -v
-      - name: Descarga real de muestra y validacion de esquema
+      - name: Descarga real de muestra (no bloquea registro completo)
+        continue-on-error: true
         run: python scripts/fuente_sociedades.py --output output/fuentes
-      - name: Guardar metadatos sin datos personales
+      - name: Descarga y validacion del registro completo
+        run: python scripts/fuente_sociedades.py --full --output output/fuentes
+      - name: Guardar exclusivamente metadatos
         uses: actions/upload-artifact@v4
         with:
           name: fuente-sociedades-metadatos
-          path: output/fuentes/registro_sociedades_muestreo_metadata.json
+          path: output/fuentes/*_metadata.json
           retention-days: 30
           if-no-files-found: error
