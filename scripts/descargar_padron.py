@@ -1,4 +1,5 @@
 """Descarga el padrón público ARCA y construye un SQLite consultable como artefacto privado."""
+import argparse
 import csv
 import io
 import json
@@ -28,13 +29,26 @@ def parse(line):
     name = line[11:41].decode("latin-1", "replace").strip()
     return (cuit, name) if name else None
 
-def main():
-    OUTPUT.mkdir(exist_ok=True)
+def main(argv=None):
+    parser = argparse.ArgumentParser(description='Importar padrón ARCA mensual, local o remoto')
+    parser.add_argument('--archivo', type=Path, help='ZIP oficial descargado manualmente')
+    parser.add_argument('--salida', type=Path, default=OUTPUT)
+    args = parser.parse_args(argv)
+    args.salida.mkdir(parents=True, exist_ok=True)
     errors = []
     archive = None
     with tempfile.TemporaryDirectory() as temp:
         target = Path(temp) / "padron.zip"
-        for url in URLS:
+        urls = [] if args.archivo else URLS
+        if args.archivo:
+            if not args.archivo.is_file():
+                raise FileNotFoundError(args.archivo)
+            import shutil
+            shutil.copyfile(args.archivo, target)
+            if not zipfile.is_zipfile(target):
+                raise ValueError('El archivo manual debe ser un ZIP válido')
+            archive = 'ARCA:archivo-manual'
+        for url in urls:
             try:
                 req = urllib.request.Request(url, headers={"User-Agent":"BuscaCuit/0.1 (padron publico)"})
                 with urllib.request.urlopen(req, timeout=120) as response, target.open("wb") as out:
@@ -48,9 +62,11 @@ def main():
                 errors.append(f"{url}: {e}")
         if not archive:
             raise RuntimeError("No se pudo descargar el padrón: "+"; ".join(errors))
-        dbpath = OUTPUT / "padron.sqlite"
-        conn = sqlite3.connect(dbpath)
-        conn.execute("CREATE TABLE IF NOT EXISTS contribuyentes(cuit TEXT PRIMARY KEY, denominacion TEXT NOT NULL)")
+        dbpath = args.salida / "padron.sqlite"
+        staged = Path(temp) / "padron.sqlite"
+        conn = sqlite3.connect(staged)
+        conn.execute("DROP TABLE IF EXISTS contribuyentes")
+        conn.execute("CREATE TABLE contribuyentes(cuit TEXT PRIMARY KEY, denominacion TEXT NOT NULL)")
         count = 0
         with zipfile.ZipFile(target) as z:
             members = [i for i in z.infolist() if not i.is_dir() and not i.filename.startswith("__MACOSX")]
@@ -75,8 +91,9 @@ def main():
         conn.close()
         if distinct < 100000:
             raise ValueError(f"Cantidad sospechosa de registros: {distinct}; revisar formato antes de usar")
-        metadata = {"fuente":archive,"fecha_utc":datetime.now(timezone.utc).isoformat(),"registros_leidos":count,"cuit_distintos":distinct,"archivo":"padron.sqlite"}
-        (OUTPUT/"metadata.json").write_text(json.dumps(metadata,ensure_ascii=False,indent=2),encoding="utf-8")
+        os.replace(staged, dbpath)
+        metadata = {"fuente":archive,"fecha_utc":datetime.now(timezone.utc).isoformat(),"registros_leidos":count,"cuit_distintos":distinct,"archivo":"padron.sqlite","modo":"manual" if args.archivo else "automatico"}
+        (args.salida/"metadata.json").write_text(json.dumps(metadata,ensure_ascii=False,indent=2),encoding="utf-8")
         print(json.dumps(metadata,ensure_ascii=False))
 if __name__ == "__main__":
     main()
