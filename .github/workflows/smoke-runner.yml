@@ -1,0 +1,15 @@
+name: Smoke test runner independiente
+on:
+  pull_request:
+  push:
+    branches:
+      - feat/ranking-contextual-geografico
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Probar arranque sin dependencias
+        run: echo RUNNER_OK
