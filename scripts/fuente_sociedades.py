@@ -6,6 +6,8 @@ import io
 import json
 import re
 import tempfile
+import time
+import urllib.error
 import urllib.request
 import zipfile
 from datetime import datetime, timezone
@@ -18,12 +20,24 @@ MAX_UNCOMPRESSED = 4_000_000_000
 REQUIRED = {"cuit", "razon_social"}
 
 
+def request_with_retry(req, read, attempts=4):
+    """Reintenta errores temporales HTTP y conexiones fallidas, sin ocultar errores definitivos."""
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(req, timeout=180) as response:
+                return read(response)
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
+            retryable = not isinstance(exc, urllib.error.HTTPError) or exc.code in (429, 500, 502, 503, 504)
+            if not retryable or attempt == attempts - 1:
+                raise
+            time.sleep(min(2 ** attempt, 8))
+
+
 def get_bytes(url, max_bytes=15_000_000):
     if not url.startswith("https://"):
         raise ValueError("Se exige HTTPS")
     req = urllib.request.Request(url, headers={"User-Agent": "BuscaCuit/1.0 (investigacion datos publicos)"})
-    with urllib.request.urlopen(req, timeout=60) as response:
-        data = response.read(max_bytes + 1)
+    data = request_with_retry(req, lambda response: response.read(max_bytes + 1))
     if len(data) > max_bytes:
         raise ValueError("Recurso supera el limite")
     return data
@@ -65,13 +79,18 @@ def download(url, destination):
     h = hashlib.sha256()
     size = 0
     req = urllib.request.Request(url, headers={"User-Agent": "BuscaCuit/1.0 (investigacion datos publicos)"})
-    with urllib.request.urlopen(req, timeout=180) as response, destination.open("wb") as out:
-        while chunk := response.read(1024 * 1024):
-            size += len(chunk)
-            if size > MAX_DOWNLOAD:
-                raise ValueError("Descarga supera el limite")
-            out.write(chunk)
-            h.update(chunk)
+    def transfer(response):
+        nonlocal size, h
+        size = 0
+        h = hashlib.sha256()
+        with destination.open("wb") as out:
+            while chunk := response.read(1024 * 1024):
+                size += len(chunk)
+                if size > MAX_DOWNLOAD:
+                    raise ValueError("Descarga supera el limite")
+                out.write(chunk)
+                h.update(chunk)
+    request_with_retry(req, transfer)
     return size, h.hexdigest()
 
 
