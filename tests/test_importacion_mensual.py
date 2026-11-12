@@ -14,7 +14,7 @@ class ImportacionMensualTests(unittest.TestCase):
             with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as z:
                 with z.open("padron.txt", "w") as f:
                     for i in range(100001):
-                        f.write((f"{20000000000+i:011d}" + "SOCIEDAD EJEMPLO".ljust(30) + "\\n").encode("ascii"))
+                        f.write((f"{20000000000+i:011d}" + "SOCIEDAD EJEMPLO".ljust(30) + "\n").encode("ascii"))
             output = base / "salida"
             main(["--archivo", str(archive), "--salida", str(output)])
             with sqlite3.connect(output / "padron.sqlite") as db:
