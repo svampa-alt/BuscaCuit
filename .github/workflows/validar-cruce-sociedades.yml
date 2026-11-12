@@ -1,0 +1,26 @@
+name: Validar cruce societario
+on:
+  pull_request:
+    paths:
+      - 'scripts/cruce_sociedades.py'
+      - 'tests/test_cruce_sociedades.py'
+      - '.github/workflows/validar-cruce-sociedades.yml'
+  push:
+    paths:
+      - 'scripts/cruce_sociedades.py'
+      - 'tests/test_cruce_sociedades.py'
+      - '.github/workflows/validar-cruce-sociedades.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pruebas de ranking y fuentes
+        run: python -m unittest discover -s tests -v
