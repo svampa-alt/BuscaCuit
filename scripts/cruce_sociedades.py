@@ -96,6 +96,45 @@ def rank(source, fmt, query, limit=MAX_CANDIDATES):
             "warning": "Coincidencia societaria no acredita titularidad del comercio."}
 
 
+
+def load_evidence(paths):
+    """Lee exportaciones oficiales locales; cada archivo conserva su procedencia."""
+    evidence = []
+    for path in paths:
+        if not path.is_file() or path.suffix.lower() != ".csv":
+            raise ValueError(f"Se requiere CSV de evidencia: {path}")
+        with path.open(encoding="utf-8-sig", newline="") as stream:
+            reader = csv.DictReader(stream)
+            for raw in reader:
+                row = fields(raw)
+                if row["cuit"] or row["name"]:
+                    evidence.append({"source_file": path.name, "record": row})
+    return evidence
+
+
+def cross_evidence(report, evidence):
+    """Corrobora coincidencias por CUIT; coincidencias textuales no prueban titularidad."""
+    for candidate in report["candidates"]:
+        linked = []
+        for item in evidence:
+            row = item["record"]
+            cuit_a = re.sub(r"\\D", "", candidate["cuit"])
+            cuit_b = re.sub(r"\\D", "", row["cuit"])
+            exact = bool(len(cuit_a) == 11 and cuit_a == cuit_b)
+            textual = bool(norm(candidate["razon_social"]) and norm(candidate["razon_social"]) == norm(row["name"]))
+            if exact or textual:
+                linked.append({"fuente": item["source_file"], "cuit_coincide": exact,
+                               "razon_social_coincide": textual,
+                               "domicilio_fuente": row["address"],
+                               "estado": "COINCIDENCIA_DOCUMENTAL_NO_TITULARIDAD"})
+        candidate["evidencias"] = linked
+        candidate["fuentes_coincidentes"] = len({e["fuente"] for e in linked})
+        candidate["score"] += 25 * sum(e["cuit_coincide"] for e in linked)
+    report["candidates"].sort(key=lambda item: item["score"], reverse=True)
+    report["evidence_records"] = len(evidence)
+    return report
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--name", default="")
@@ -104,7 +143,7 @@ def main():
     p.add_argument("--city", default="")
     p.add_argument("--province", default="")
     p.add_argument("--postal", default="")
-    p.add_argument("--source", type=Path, help="CSV o ZIP local; si se omite, descarga fuente oficial")
+    p.add_argument("--source", type=Path, help="CSV o ZIP local; si se omite, descarga fuente oficial")\n    p.add_argument("--evidence", type=Path, action="append", default=[], help="CSV oficial externo, repetible; ej. exportaciones ARCA o GCBA")
     p.add_argument("--output", type=Path, default=Path("output/cruce_sociedades.json"))
     args = p.parse_args()
     query = {k: getattr(args, k) for k in ("name", "cuit", "address", "city", "province", "postal")}
@@ -132,7 +171,7 @@ def main():
             path = Path(tmp) / ("sociedades." + fmt)
             download(resource["url"], path)
             origin = resource["url"]
-        report = rank(path, fmt, query)
+        report = rank(path, fmt, query)\n        if args.evidence:\n            report = cross_evidence(report, load_evidence(args.evidence))
         report["source"] = origin
         report["query"] = query
         args.output.parent.mkdir(parents=True, exist_ok=True)
