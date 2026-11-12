@@ -15,6 +15,7 @@ from pathlib import Path
 
 API = "https://datos.gob.ar/api/3/action/package_show?id=justicia-registro-nacional-sociedades"
 DATASET = "https://datos.gob.ar/dataset/justicia-registro-nacional-sociedades"
+ALTERNATE_API = "https://datos.jus.gob.ar/api/3/action/package_show?id=registro-nacional-de-sociedades"
 MAX_DOWNLOAD = 1_500_000_000
 MAX_UNCOMPRESSED = 4_000_000_000
 REQUIRED = {"cuit", "razon_social"}
@@ -129,9 +130,21 @@ def inspect_file(path, fmt):
 
 
 def run(output, full=False):
-    meta = json.loads(get_bytes(API))
-    if not meta.get("success"):
-        raise ValueError("API CKAN no devolvio success")
+    errors = []
+    meta = None
+    api_used = None
+    for endpoint in (API, ALTERNATE_API):
+        try:
+            candidate = json.loads(get_bytes(endpoint))
+            if not candidate.get("success"):
+                raise ValueError("API CKAN no devolvio success")
+            meta = candidate
+            api_used = endpoint
+            break
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError) as exc:
+            errors.append(f"{endpoint}: {type(exc).__name__}: {exc}")
+    if meta is None:
+        raise RuntimeError("Fallaron ambos catalogos oficiales: " + " | ".join(errors))
     resource = choose_full(meta["result"].get("resources", [])) if full else choose_sample(meta["result"].get("resources", []))
     fmt = resource.get("format", "").lower()
     with tempfile.TemporaryDirectory() as tmp:
@@ -140,7 +153,7 @@ def run(output, full=False):
         result = inspect_file(path, fmt)
     output.mkdir(parents=True, exist_ok=True)
     report = {
-        "dataset": DATASET, "api": API, "mode": "full" if full else "sample",
+        "dataset": DATASET, "api": api_used, "mode": "full" if full else "sample",
         "resource_url": resource["url"], "resource_id": resource.get("id"),
         "resource_name": resource.get("name"), "accessed_utc": datetime.now(timezone.utc).isoformat(),
         "format": fmt, "sha256": digest, "bytes": size, "row_count": result["rows"],
