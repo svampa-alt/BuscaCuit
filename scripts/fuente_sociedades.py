@@ -44,7 +44,7 @@ def choose_full(resources):
     for r in resources:
         name = r.get("name", "")
         label = name.lower()
-        match = re.fullmatch(r"registro nacional de sociedades\\s*-\\s*(20\\d{2})(?:\\s*-\\s*semestre\\s*([12]))?", label.strip())
+        match = re.fullmatch(r"registro nacional de sociedades\s*-\s*(20\d{2})(?:\s*-\s*semestre\s*([12]))?", label.strip())
         if (match and r.get("url", "").startswith("https://")
                 and r.get("format", "").lower() in ("csv", "zip")):
             year = int(match.group(1))
