@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from cruce_sociedades import fields, match, rank
+from cruce_sociedades import fields, match, rank, cross_evidence, load_evidence
 
 
 class CruceSociedadesTests(unittest.TestCase):
@@ -25,6 +25,22 @@ class CruceSociedadesTests(unittest.TestCase):
     def test_sin_coincidencia_no_inventa(self):
         row = fields({"cuit": "301", "razon_social": "Otra Empresa"})
         self.assertIsNone(match(row, {"name": "El Nido"}))
+
+    def test_cruce_fuentes_no_confunde_nombre_con_titularidad(self):
+        report = {"candidates": [{"cuit": "30123456789", "razon_social": "El Nido SRL", "score": 100}]}
+        evidence = [{"source_file": "gcba.csv", "record": fields({"cuit": "30123456789", "razon_social": "El Nido SRL"})}]
+        result = cross_evidence(report, evidence)
+        self.assertEqual(result["candidates"][0]["fuentes_coincidentes"], 1)
+        self.assertTrue(result["candidates"][0]["evidencias"][0]["cuit_coincide"])
+        self.assertEqual(result["candidates"][0]["evidencias"][0]["estado"], "COINCIDENCIA_DOCUMENTAL_NO_TITULARIDAD")
+
+    def test_lectura_csv_evidencia(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "arca.csv"
+            path.write_text("cuit,razon_social\\n30123456789,El Nido SRL\\n", encoding="utf-8")
+            evidence = load_evidence([path])
+            self.assertEqual(len(evidence), 1)
+            self.assertEqual(evidence[0]["source_file"], "arca.csv")
 
     def test_lectura_real_csv_y_estado(self):
         with tempfile.TemporaryDirectory() as tmp:
