@@ -1,5 +1,8 @@
 import unittest
-from scripts.cruce_sociedades import match
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+from cruce_sociedades import match
 
 def record(**kw):
     return dict(cuit="30123456789",name="EL NIDO SRL",address="COSTA RICA 5709",
