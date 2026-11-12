@@ -27,7 +27,8 @@ jobs:
           python-version: '3.12'
       - name: Pruebas unitarias
         run: python -m unittest discover -s tests -v
-      - name: Descarga real de muestra
+      - name: Descarga real de muestra (no bloquea registro completo)
+        continue-on-error: true
         run: python scripts/fuente_sociedades.py --output output/fuentes
       - name: Descarga y validacion del registro completo
         run: python scripts/fuente_sociedades.py --full --output output/fuentes
