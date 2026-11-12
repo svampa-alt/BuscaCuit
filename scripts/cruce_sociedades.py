@@ -11,6 +11,8 @@ from pathlib import Path
 
 from fuente_sociedades import API, ALTERNATE_API, choose_full, download, get_bytes
 
+GCBA_API = "https://data.buenosaires.gob.ar/api/3/action/package_show?id=habilitaciones-aprobadas"
+
 ALIASES = {
     "cuit": ("cuit", "cuit_sociedad"),
     "name": ("razon_social", "denominacion", "nombre", "nombre_comercial"),
@@ -135,6 +137,25 @@ def cross_evidence(report, evidence):
     return report
 
 
+def download_gcba(destination):
+    """Descarga el CSV anual mas reciente del catalogo oficial de habilitaciones."""
+    catalog = json.loads(get_bytes(GCBA_API))
+    if not catalog.get("success"):
+        raise ValueError("Catalogo GCBA sin respuesta valida")
+    resources = catalog["result"].get("resources", [])
+    matches = []
+    for resource in resources:
+        label = norm(resource.get("name", ""))
+        year = re.search(r"HABILITACIONES (20[0-9]{2})", label)
+        if year and resource.get("format", "").lower() == "csv" and resource.get("url", "").startswith("https://"):
+            matches.append((int(year.group(1)), resource))
+    if not matches:
+        raise ValueError("No hay CSV anual de habilitaciones GCBA")
+    resource = max(matches, key=lambda item: item[0])[1]
+    download(resource["url"], destination)
+    return resource["url"]
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--name", default="")
@@ -145,6 +166,7 @@ def main():
     p.add_argument("--postal", default="")
     p.add_argument("--source", type=Path, help="CSV o ZIP local; si se omite, descarga fuente oficial")
     p.add_argument("--evidence", type=Path, action="append", default=[], help="CSV oficial externo, repetible; ej. exportaciones ARCA o GCBA")
+    p.add_argument("--gcba", action="store_true", help="Descargar automaticamente habilitaciones oficiales GCBA")
     p.add_argument("--output", type=Path, default=Path("output/cruce_sociedades.json"))
     args = p.parse_args()
     query = {k: getattr(args, k) for k in ("name", "cuit", "address", "city", "province", "postal")}
@@ -173,8 +195,14 @@ def main():
             download(resource["url"], path)
             origin = resource["url"]
         report = rank(path, fmt, query)
-        if args.evidence:
-            report = cross_evidence(report, load_evidence(args.evidence))
+        evidence_paths = list(args.evidence)
+        if args.gcba:
+            gcba_file = Path(tmp) / "gcba_habilitaciones.csv"
+            gcba_url = download_gcba(gcba_file)
+            evidence_paths.append(gcba_file)
+            report["gcba_source"] = gcba_url
+        if evidence_paths:
+            report = cross_evidence(report, load_evidence(evidence_paths))
         report["source"] = origin
         report["query"] = query
         args.output.parent.mkdir(parents=True, exist_ok=True)
