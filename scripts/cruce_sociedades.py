@@ -46,8 +46,8 @@ def match(record, query):
     name = tokens(record["name"])
     wanted = tokens(query.get("name", ""))
     overlap = len(name & wanted) / max(len(wanted), 1)
-    raw_cuit = re.sub(r"\\D", "", str(query.get("cuit", "")))
-    record_cuit = re.sub(r"\\D", "", str(record["cuit"]))
+    raw_cuit = re.sub(r"\D", "", str(query.get("cuit", "")))
+    record_cuit = re.sub(r"\D", "", str(record["cuit"]))
     exact_cuit = bool(len(raw_cuit) == 11 and raw_cuit == record_cuit)
     query_address = norm(query.get("address", ""))
     record_address = norm(record["address"])
@@ -135,8 +135,8 @@ def cross_evidence(report, evidence):
         linked = []
         for item in evidence:
             row = item["record"]
-            cuit_a = re.sub(r"\\D", "", candidate["cuit"])
-            cuit_b = re.sub(r"\\D", "", row["cuit"])
+            cuit_a = re.sub(r"\D", "", candidate["cuit"])
+            cuit_b = re.sub(r"\D", "", row["cuit"])
             exact = bool(len(cuit_a) == 11 and cuit_a == cuit_b)
             textual = bool(norm(candidate["razon_social"]) and norm(candidate["razon_social"]) == norm(row["name"]))
             if exact or textual:
