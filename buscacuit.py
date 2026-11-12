@@ -5,12 +5,15 @@ import json
 import re
 import unicodedata
 from pathlib import Path
+from geografia import rank
 
 ALIASES = {
     "cuit": ("cuit", "cuit_contribuyente", "id_persona", "id"),
     "razon_social": ("razon_social", "denominacion", "apellido_nombre", "nombre"),
     "domicilio": ("domicilio", "direccion", "domicilio_fiscal"),
     "nombre_comercial": ("nombre_comercial", "fantasia", "nombre_fantasia"),
+    "localidad": ("localidad", "barrio", "ciudad"),
+    "provincia": ("provincia", "jurisdiccion"),
 }
 
 def normalize(value):
@@ -29,7 +32,7 @@ def pick(row, field):
     keys = {normalize(k): v for k, v in row.items() if k}
     return next((keys[normalize(alias)] for alias in ALIASES[field] if keys.get(normalize(alias))), "")
 
-def search(paths, query, limit=30):
+def search(paths, query, limit=30, localidad='', provincia='', domicilio=''):
     needle = normalize(query)
     if len(needle) < 3:
         raise ValueError("La consulta debe contener al menos tres caracteres")
@@ -47,17 +50,18 @@ def search(paths, query, limit=30):
                 data.update(fuente=str(path), cuit_valido=valid_cuit(cuit),
                             evidencia="coincidencia en padrón; titularidad comercial no confirmada")
                 found.append(data)
-                if len(found) >= limit:
-                    return found
-    return found
+    return rank(found, localidad, provincia, domicilio)[:limit]
 
 def main():
     parser = argparse.ArgumentParser(description="Buscar CUIT por nombre, domicilio o CUIT en CSV")
     parser.add_argument("consulta")
     parser.add_argument("archivos", nargs="+", type=Path)
     parser.add_argument("--limite", type=int, default=30)
+    parser.add_argument('--localidad', default='')
+    parser.add_argument('--provincia', default='')
+    parser.add_argument('--domicilio', default='')
     args = parser.parse_args()
-    print(json.dumps(search(args.archivos, args.consulta, args.limite), ensure_ascii=False, indent=2))
+    print(json.dumps(search(args.archivos, args.consulta, args.limite, args.localidad, args.provincia, args.domicilio), ensure_ascii=False, indent=2))
 
 if __name__ == "__main__":
     main()
