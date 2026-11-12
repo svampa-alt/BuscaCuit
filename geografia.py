@@ -1,4 +1,5 @@
-"""Ranking geográfico basado únicamente en evidencia de fuentes; el CUIT no contiene ubicación."""
+"""Ranking contextual: cercanía al domicilio comercial, nunca exclusión por provincia fiscal."""
+import math
 import re
 import unicodedata
 
@@ -6,24 +7,35 @@ def norm(s):
     t=unicodedata.normalize("NFKD",str(s or "").lower())
     return re.sub(r"[^a-z0-9]","", "".join(c for c in t if not unicodedata.combining(c)))
 
-def evaluate(record, localidad="", provincia="", domicilio=""):
-    """Devuelve puntaje y estado. No descarta ausencia de datos como contradicción."""
-    lp,pp,dp=norm(localidad),norm(provincia),norm(domicilio)
-    rl,rp,rd=norm(record.get("localidad")),norm(record.get("provincia")),norm(record.get("domicilio"))
-    if pp and rp and pp!=rp:
-        return (-1,"provincia_contradictoria")
-    if lp and rl and lp!=rl:
-        return (-1,"localidad_contradictoria")
-    score=0
-    if pp and rp==pp: score+=3
-    if lp and rl==lp: score+=5
-    if dp and rd and (dp in rd or rd in dp): score+=10
-    return (score,"coincidencia_geografica" if score else "ubicacion_no_verificada")
+def distance_km(a,b):
+    lat1,lon1=map(math.radians,map(float,a))
+    lat2,lon2=map(math.radians,map(float,b))
+    dlat=lat2-lat1
+    dlon=lon2-lon1
+    h=math.sin(dlat/2)**2+math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2
+    return 6371.0088*2*math.asin(min(1,math.sqrt(h)))
 
-def rank(records, localidad="", provincia="", domicilio="", excluir_contradictorios=True):
+def evaluate(record, localidad="", provincia="", domicilio="", coordenadas=None):
+    """Domicilio comercial y sucursales priman sobre domicilio fiscal."""
+    wanted=(norm(localidad),norm(provincia),norm(domicilio))
+    locations=record.get("establecimientos") or [record]
+    best=(0,"ubicacion_no_verificada")
+    for loc in locations:
+        rl,rp,rd=(norm(loc.get(k)) for k in ("localidad","provincia","domicilio"))
+        score=0
+        if wanted[1] and rp==wanted[1]: score+=10
+        if wanted[0] and rl==wanted[0]: score+=20
+        if wanted[2] and rd and (wanted[2] in rd or rd in wanted[2]): score+=60
+        if coordenadas and loc.get("latitud") is not None and loc.get("longitud") is not None:
+            km=distance_km(coordenadas,(loc["latitud"],loc["longitud"]))
+            score+=max(0,50-10*km)
+        if score>best[0]: best=(score,"coincidencia_geografica")
+    return best
+
+def rank(records, localidad="", provincia="", domicilio="", excluir_contradictorios=False, coordenadas=None):
+    """Mantiene candidatos lejanos: el domicilio fiscal puede diferir del comercial."""
     out=[]
     for record in records:
-        score,status=evaluate(record,localidad,provincia,domicilio)
-        if score<0 and excluir_contradictorios: continue
+        score,status=evaluate(record,localidad,provincia,domicilio,coordenadas)
         out.append(dict(record,puntaje_geografico=score,estado_geografico=status))
     return sorted(out,key=lambda r:r["puntaje_geografico"],reverse=True)
