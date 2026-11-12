@@ -1,6 +1,11 @@
 name: Validar fuente Registro Nacional de Sociedades
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/fuente_sociedades.py'
+      - 'tests/test_fuente_sociedades.py'
+      - '.github/workflows/validar-fuente-sociedades.yml'
   push:
     paths:
       - 'scripts/fuente_sociedades.py'
