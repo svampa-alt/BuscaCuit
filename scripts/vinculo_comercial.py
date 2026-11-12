@@ -3,11 +3,15 @@ import argparse
 import csv
 import json
 import re
+import unicodedata
 from pathlib import Path
-try:
-    from scripts.cruce_sociedades import norm, tokens
-except ModuleNotFoundError:
-    from cruce_sociedades import norm, tokens
+def norm(value):
+    value = unicodedata.normalize("NFKD", str(value or "").upper())
+    value = "".join(c for c in value if not unicodedata.combining(c))
+    return re.sub(r"[^A-Z0-9]+", " ", value).strip()
+
+def tokens(value):
+    return {w for w in norm(value).split() if len(w) > 1 and w not in {"EL","LA","LOS","LAS","DE","DEL","BAR"}}
 
 CUIT = re.compile(r"(?<!\\d)\\d{2}[- ]?\\d{8}[- ]?\\d(?!\\d)")
 ALIASES = {
