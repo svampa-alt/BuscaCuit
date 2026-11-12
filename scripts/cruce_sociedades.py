@@ -30,7 +30,7 @@ def norm(value):
 
 
 def fields(row):
-    keys = {norm(k).lower(): v for k, v in row.items() if k}
+    keys = {norm(k).lower().replace(" ", "_"): v for k, v in row.items() if k}
     return {field: next((keys[alias] for alias in aliases if alias in keys), "")
             for field, aliases in ALIASES.items()}
 
