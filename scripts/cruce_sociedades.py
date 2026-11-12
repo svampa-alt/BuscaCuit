@@ -143,7 +143,8 @@ def main():
     p.add_argument("--city", default="")
     p.add_argument("--province", default="")
     p.add_argument("--postal", default="")
-    p.add_argument("--source", type=Path, help="CSV o ZIP local; si se omite, descarga fuente oficial")\n    p.add_argument("--evidence", type=Path, action="append", default=[], help="CSV oficial externo, repetible; ej. exportaciones ARCA o GCBA")
+    p.add_argument("--source", type=Path, help="CSV o ZIP local; si se omite, descarga fuente oficial")
+    p.add_argument("--evidence", type=Path, action="append", default=[], help="CSV oficial externo, repetible; ej. exportaciones ARCA o GCBA")
     p.add_argument("--output", type=Path, default=Path("output/cruce_sociedades.json"))
     args = p.parse_args()
     query = {k: getattr(args, k) for k in ("name", "cuit", "address", "city", "province", "postal")}
@@ -171,7 +172,9 @@ def main():
             path = Path(tmp) / ("sociedades." + fmt)
             download(resource["url"], path)
             origin = resource["url"]
-        report = rank(path, fmt, query)\n        if args.evidence:\n            report = cross_evidence(report, load_evidence(args.evidence))
+        report = rank(path, fmt, query)
+        if args.evidence:
+            report = cross_evidence(report, load_evidence(args.evidence))
         report["source"] = origin
         report["query"] = query
         args.output.parent.mkdir(parents=True, exist_ok=True)
