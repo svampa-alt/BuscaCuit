@@ -13,7 +13,7 @@ def norm(value):
 def tokens(value):
     return {w for w in norm(value).split() if len(w) > 1 and w not in {"EL","LA","LOS","LAS","DE","DEL","BAR"}}
 
-CUIT = re.compile(r"(?<!\\d)\\d{2}[- ]?\\d{8}[- ]?\\d(?!\\d)")
+CUIT = re.compile(r"(?<!\d)\d{2}[- ]?\d{8}[- ]?\d(?!\d)")
 ALIASES = {
     "cuit": ("cuit", "cuit_titular", "cuit_contribuyente"),
     "comercio": ("nombre_comercial", "nombre_fantasia", "nombre_del_local", "establecimiento", "comercio"),
@@ -36,7 +36,7 @@ def analyze(rows, name, address, source):
         address_ok = bool(address and norm(address) and norm(address) == norm(r["direccion"]))
         if not (name_ok and address_ok):
             continue
-        digits = re.sub(r"\\D", "", r["cuit"])
+        digits = re.sub(r"\D", "", r["cuit"])
         valid_cuit = bool(CUIT.fullmatch(r["cuit"]) and len(digits) == 11)
         matches.append({
             "fuente": source, "comercio": r["comercio"], "direccion": r["direccion"],
