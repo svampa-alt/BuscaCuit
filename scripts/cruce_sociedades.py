@@ -42,19 +42,34 @@ def tokens(value):
 
 
 def match(record, query):
+    """Ranking contextual: la jurisdiccion contradictoria penaliza, no elimina."""
     name = tokens(record["name"])
     wanted = tokens(query.get("name", ""))
     overlap = len(name & wanted) / max(len(wanted), 1)
-    exact_cuit = bool(query.get("cuit") and re.sub(r"\D", "", record["cuit"]) == re.sub(r"\D", "", query["cuit"]))
-    address = bool(query.get("address") and norm(query["address"]) in norm(record["address"]))
+    raw_cuit = re.sub(r"\D", "", str(query.get("cuit", "")))
+    record_cuit = re.sub(r"\D", "", str(record["cuit"]))
+    exact_cuit = bool(len(raw_cuit) == 11 and raw_cuit == record_cuit)
+    query_address = norm(query.get("address", ""))
+    record_address = norm(record["address"])
+    address = bool(query_address and record_address and
+                   (query_address == record_address or
+                    query_address.split() == record_address.split()[:len(query_address.split())]))
     city = bool(query.get("city") and norm(query["city"]) == norm(record["city"]))
     province = bool(query.get("province") and norm(query["province"]) == norm(record["province"]))
     postal = bool(query.get("postal") and norm(query["postal"]) == norm(record["postal"]))
+    city_conflict = bool(query.get("city") and record["city"] and not city)
+    province_conflict = bool(query.get("province") and record["province"] and not province)
+    postal_conflict = bool(query.get("postal") and record["postal"] and not postal)
     if not (exact_cuit or overlap > 0 or address):
         return None
-    score = round(100 * overlap + 70 * exact_cuit + 35 * address + 15 * city + 12 * province + 15 * postal, 2)
-    return {"score": score, "signals": {"cuit_exact": exact_cuit, "name_overlap": round(overlap, 3),
-            "address": address, "city": city, "province": province, "postal": postal}}
+    score = round(100 * overlap + 70 * exact_cuit + 35 * address +
+                  15 * city + 12 * province + 15 * postal -
+                  30 * city_conflict - 60 * province_conflict - 25 * postal_conflict, 2)
+    return {"score": score, "signals": {
+        "cuit_exact": exact_cuit, "name_overlap": round(overlap, 3),
+        "address": address, "city": city, "province": province, "postal": postal,
+        "city_conflict": city_conflict, "province_conflict": province_conflict,
+        "postal_conflict": postal_conflict}}
 
 
 def records(path, fmt):
@@ -120,8 +135,8 @@ def cross_evidence(report, evidence):
         linked = []
         for item in evidence:
             row = item["record"]
-            cuit_a = re.sub(r"\\D", "", candidate["cuit"])
-            cuit_b = re.sub(r"\\D", "", row["cuit"])
+            cuit_a = re.sub(r"\D", "", candidate["cuit"])
+            cuit_b = re.sub(r"\D", "", row["cuit"])
             exact = bool(len(cuit_a) == 11 and cuit_a == cuit_b)
             textual = bool(norm(candidate["razon_social"]) and norm(candidate["razon_social"]) == norm(row["name"]))
             if exact or textual:

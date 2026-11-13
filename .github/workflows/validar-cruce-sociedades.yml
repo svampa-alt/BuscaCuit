@@ -23,7 +23,12 @@ jobs:
         with:
           python-version: '3.12'
       - name: Pruebas de ranking y fuentes
-        run: python -m unittest discover -s tests -v
+        run: python -m unittest discover -s tests -v > test-results.txt 2>&1 || (cat test-results.txt && exit 1)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ranking-test-results
+          path: test-results.txt
       - name: Cruce real Sociedades y GCBA
         run: python scripts/cruce_sociedades.py --name 'El Nido' --address 'Costa Rica 5709' --city Palermo --province CABA --gcba --output output/cruce_sociedades.json
       - name: Subir solo resumen de ejecucion
