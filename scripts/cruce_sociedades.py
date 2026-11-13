@@ -57,7 +57,20 @@ def match(record, query):
     city = bool(query.get("city") and norm(query["city"]) == norm(record["city"]))
     province = bool(query.get("province") and norm(query["province"]) == norm(record["province"]))
     postal = bool(query.get("postal") and norm(query["postal"]) == norm(record["postal"]))
-    city_conflict = bool(query.get("city") and record["city"] and not city)
+    # Palermo es un barrio de CABA, no una ciudad de otra jurisdiccion.
+    # No otorgar puntos por coincidencia exacta, pero evitar falso conflicto.
+    caba_barrios = {"PALERMO", "RECOLETA", "BELGRANO", "CABALLITO", "FLORES",
+                   "ALMAGRO", "BALVANERA", "RETIRO", "SAN TELMO", "BOEDO",
+                   "VILLA CRESPO", "COLEGIALES", "NUNEZ", "BARRACAS", "LA BOCA"}
+    qcity = norm(query.get("city", ""))
+    rcity = norm(record["city"])
+    qprov = norm(query.get("province", ""))
+    rprov = norm(record["province"])
+    caba_alias = {"CABA", "CIUDAD AUTONOMA DE BUENOS AIRES", "CAPITAL FEDERAL"}
+    same_caba_area = bool(qprov in caba_alias and rprov in caba_alias and
+                          ((qcity in caba_barrios and rcity in caba_alias) or
+                           (rcity in caba_barrios and qcity in caba_alias)))
+    city_conflict = bool(query.get("city") and record["city"] and not city and not same_caba_area)
     province_conflict = bool(query.get("province") and record["province"] and not province)
     postal_conflict = bool(query.get("postal") and record["postal"] and not postal)
     if not (exact_cuit or overlap > 0 or address):
