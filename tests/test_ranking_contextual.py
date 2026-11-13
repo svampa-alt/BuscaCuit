@@ -24,5 +24,15 @@ class ContextoTests(unittest.TestCase):
     def test_sin_jurisdiccion_no_penaliza(self):
         result=match(record(),{"name":"El Nido"})
         self.assertFalse(result["signals"]["province_conflict"])
+    def test_palermo_y_caba_no_son_conflicto(self):
+        q={"name":"El Nido","city":"Palermo","province":"CABA"}
+        r=match(record(),q)
+        self.assertFalse(r["signals"]["city_conflict"])
+        self.assertFalse(r["signals"]["city"])
+    def test_palermo_y_chubut_si_son_conflicto(self):
+        q={"name":"El Nido","city":"Palermo","province":"CABA"}
+        r=match(dict(record(),city="RAWSON",province="CHUBUT"),q)
+        self.assertTrue(r["signals"]["city_conflict"])
+        self.assertTrue(r["signals"]["province_conflict"])
 if __name__=="__main__":
     unittest.main()
