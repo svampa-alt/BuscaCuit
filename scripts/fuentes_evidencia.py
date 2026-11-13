@@ -49,7 +49,7 @@ def importar_csv(ruta, fuente, *, fecha_consulta=None):
     with Path(ruta).open(encoding="utf-8-sig", newline="") as archivo:
         for numero, fila in enumerate(csv.DictReader(archivo), start=2):
             datos = extraer(fila)
-            cuit = re.sub(r"\\D", "", datos["cuit"])
+            cuit = re.sub(r"\D", "", datos["cuit"])
             if cuit and len(cuit) != 11:
                 cuit = ""  # No inventar ni propagar identificadores incompletos.
             if not (cuit or datos["razon_social"] or datos["nombre_comercial"]):
