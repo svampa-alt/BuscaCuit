@@ -10,6 +10,7 @@ import zipfile
 from pathlib import Path
 
 from fuente_sociedades import API, ALTERNATE_API, choose_full, download, get_bytes
+from fuentes_evidencia import FUENTES, importar_csv
 
 GCBA_API = "https://data.buenosaires.gob.ar/api/3/action/package_show?id=habilitaciones-aprobadas"
 
@@ -142,6 +143,23 @@ def load_evidence(paths):
     return evidence
 
 
+def load_catalog_evidence(specs):
+    """Fuente=archivo.csv; cada evidencia conserva organismo, catalogo y fila."""
+    items = []
+    for spec in specs:
+        if "=" not in spec:
+            raise ValueError("Usar --evidence-catalog fuente=archivo.csv")
+        fuente, archivo = spec.split("=", 1)
+        for entry in importar_csv(Path(archivo), fuente):
+            d = entry["datos"]
+            items.append({"source_file": entry["archivo_origen"], "source_id": fuente,
+                          "source_catalog": entry["catalogo"], "source_record_id": entry["id"],
+                          "record": {"cuit": d["cuit"], "name": d["razon_social"] or d["nombre_comercial"],
+                                     "address": d["domicilio"], "city": d["localidad"],
+                                     "province": d["provincia"], "postal": ""}})
+    return items
+
+
 def cross_evidence(report, evidence):
     """Corrobora coincidencias por CUIT; coincidencias textuales no prueban titularidad."""
     for candidate in report["candidates"]:
@@ -153,7 +171,11 @@ def cross_evidence(report, evidence):
             exact = bool(len(cuit_a) == 11 and cuit_a == cuit_b)
             textual = bool(norm(candidate["razon_social"]) and norm(candidate["razon_social"]) == norm(row["name"]))
             if exact or textual:
-                linked.append({"fuente": item["source_file"], "cuit_coincide": exact,
+                linked.append({"fuente": item.get("source_id", item["source_file"]),
+                               "archivo": item["source_file"],
+                               "catalogo": item.get("source_catalog", ""),
+                               "id_evidencia": item.get("source_record_id", ""),
+                               "cuit_coincide": exact,
                                "razon_social_coincide": textual,
                                "domicilio_fuente": row["address"],
                                "estado": "COINCIDENCIA_DOCUMENTAL_NO_TITULARIDAD"})
@@ -194,6 +216,8 @@ def main():
     p.add_argument("--postal", default="")
     p.add_argument("--source", type=Path, help="CSV o ZIP local; si se omite, descarga fuente oficial")
     p.add_argument("--evidence", type=Path, action="append", default=[], help="CSV oficial externo, repetible; ej. exportaciones ARCA o GCBA")
+    p.add_argument("--evidence-catalog", action="append", default=[],
+                   help="Fuente registrada=archivo.csv; ej. bora_sociedades=avisos.csv")
     p.add_argument("--gcba", action="store_true", help="Descargar automaticamente habilitaciones oficiales GCBA")
     p.add_argument("--output", type=Path, default=Path("output/cruce_sociedades.json"))
     args = p.parse_args()
@@ -229,8 +253,9 @@ def main():
             gcba_url = download_gcba(gcba_file)
             evidence_paths.append(gcba_file)
             report["gcba_source"] = gcba_url
-        if evidence_paths:
-            report = cross_evidence(report, load_evidence(evidence_paths))
+        if evidence_paths or args.evidence_catalog:
+            report = cross_evidence(report, load_evidence(evidence_paths) +
+                                    load_catalog_evidence(args.evidence_catalog))
         report["source"] = origin
         report["query"] = query
         args.output.parent.mkdir(parents=True, exist_ok=True)
