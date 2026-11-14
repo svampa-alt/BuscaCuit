@@ -34,6 +34,26 @@ class CruceSociedadesTests(unittest.TestCase):
         self.assertTrue(result["candidates"][0]["evidencias"][0]["cuit_coincide"])
         self.assertEqual(result["candidates"][0]["evidencias"][0]["estado"], "COINCIDENCIA_DOCUMENTAL_NO_TITULARIDAD")
 
+    def test_nombre_igual_sin_cuit_ni_domicilio_no_vincula(self):
+        report = {"candidates": [{"cuit": "30123456789", "razon_social": "El Nido SRL",
+                                  "domicilio": "Costa Rica 5709", "score": 100}]}
+        evidence = [{"source_file": "bora.csv", "record": fields({
+            "cuit": "30999999999", "razon_social": "El Nido SRL",
+            "domicilio": "Otra Calle 10"})}]
+        result = cross_evidence(report, evidence)
+        self.assertEqual(result["candidates"][0]["fuentes_coincidentes"], 0)
+        self.assertEqual(result["candidates"][0]["score"], 100)
+
+    def test_nombre_y_domicilio_corrobora_sin_titularidad(self):
+        report = {"candidates": [{"cuit": "30123456789", "razon_social": "El Nido SRL",
+                                  "domicilio": "Costa Rica 5709", "score": 100}]}
+        evidence = [{"source_file": "bora.csv", "record": fields({
+            "razon_social": "El Nido SRL", "domicilio": "Costa Rica 5709"})}]
+        result = cross_evidence(report, evidence)
+        self.assertEqual(result["candidates"][0]["fuentes_coincidentes"], 1)
+        self.assertTrue(result["candidates"][0]["evidencias"][0]["domicilio_coincide"])
+        self.assertFalse(result.get("ownership_verified", False))
+
     def test_lectura_csv_evidencia(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "arca.csv"

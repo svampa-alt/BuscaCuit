@@ -170,13 +170,19 @@ def cross_evidence(report, evidence):
             cuit_b = re.sub(r"\D", "", row["cuit"])
             exact = bool(len(cuit_a) == 11 and cuit_a == cuit_b)
             textual = bool(norm(candidate["razon_social"]) and norm(candidate["razon_social"]) == norm(row["name"]))
-            if exact or textual:
+            candidate_address = norm(candidate.get("domicilio", ""))
+            source_address = norm(row["address"])
+            same_address = bool(candidate_address and source_address and candidate_address == source_address)
+            # El nombre aislado no identifica una sociedad: exigir CUIT o
+            # nombre y domicilio simultaneamente para vincular evidencia.
+            if exact or (textual and same_address):
                 linked.append({"fuente": item.get("source_id", item["source_file"]),
                                "archivo": item["source_file"],
                                "catalogo": item.get("source_catalog", ""),
                                "id_evidencia": item.get("source_record_id", ""),
                                "cuit_coincide": exact,
                                "razon_social_coincide": textual,
+                               "domicilio_coincide": same_address,
                                "domicilio_fuente": row["address"],
                                "estado": "COINCIDENCIA_DOCUMENTAL_NO_TITULARIDAD"})
         candidate["evidencias"] = linked

@@ -3,12 +3,18 @@ on:
   pull_request:
     paths:
       - 'scripts/cruce_sociedades.py'
+      - 'scripts/fuentes_evidencia.py'
       - 'tests/test_cruce_sociedades.py'
+      - 'tests/test_fuentes_evidencia.py'
+      - 'tests/test_ranking_contextual.py'
       - '.github/workflows/validar-cruce-sociedades.yml'
   push:
     paths:
       - 'scripts/cruce_sociedades.py'
+      - 'scripts/fuentes_evidencia.py'
       - 'tests/test_cruce_sociedades.py'
+      - 'tests/test_fuentes_evidencia.py'
+      - 'tests/test_ranking_contextual.py'
       - '.github/workflows/validar-cruce-sociedades.yml'
   workflow_dispatch:
 permissions:
