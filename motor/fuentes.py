@@ -135,12 +135,14 @@ def _filas_gcba(ruta):
         return
     i_exp = pos.get("numeroexp", pos.get("numeroexpediente"))
     i_rubro, i_fecha = pos.get("descripcionrubro"), pos.get("fechahabilitacion")
+    i_sub = pos.get("descripcionsubrubro")  # desde 2020 el rubro es generico y el detalle va aca
     for fila in lector:
         if not roto:
             if len(fila) < len(cab):
                 continue
             yield (fila[pos["calles"]], fila[pos["titulares"]], fila[pos["cuits"]],
-                   fila[i_rubro] if i_rubro is not None else "",
+                   (fila[i_sub].strip() if i_sub is not None else "")
+                   or (fila[i_rubro] if i_rubro is not None else ""),
                    fila[i_exp] if i_exp is not None else "",
                    fila[i_fecha] if i_fecha is not None else "")
             continue
@@ -155,12 +157,13 @@ def _filas_gcba(ruta):
         if not _RE_DOM.match(fila[j]):
             continue
         yield (fila[j], ",".join(fila[j + 1:i_cuit]), fila[i_cuit],
-               fila[9] if len(fila) > 9 else "", fila[7] if len(fila) > 7 else "",
+               (fila[11].strip() if len(fila) > 11 and j > 11 else "") or (fila[9] if len(fila) > 9 else ""),
+               fila[7] if len(fila) > 7 else "",
                fila[5] if len(fila) > 5 else "")
 
 
 def leer_gcba(rutas):
-    """Una fila por (CUIT, domicilio), con la habilitacion mas reciente y hasta tres rubros.
+    """Una fila por (CUIT, domicilio), con la habilitacion mas reciente y hasta seis rubros.
 
     El archivo trae una fila por rubro, y cada habilitacion puede tener varios titulares
     y varios domicilios.
@@ -184,7 +187,7 @@ def leer_gcba(rutas):
                         "cuit": cuit, "titular": " ".join(titular.split()), "nombre_local": "",
                         "calle": calle, "numero": numero, "localidad": "", "provincia": "CABA",
                         "referencia": "", "fecha": "", "_rubros": []})
-                    if rubro and rubro not in f["_rubros"] and len(f["_rubros"]) < 3:
+                    if rubro and rubro not in f["_rubros"] and len(f["_rubros"]) < 6:
                         f["_rubros"].append(rubro)
                     if fecha >= f["fecha"]:
                         f["fecha"], f["referencia"] = fecha, " ".join(exp.split())

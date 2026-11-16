@@ -21,15 +21,15 @@ class FuentesLocalesTests(unittest.TestCase):
         d = Path(cls.tmp.name)
         with open(d / "hab2024.csv", "w", encoding="utf-8", newline="") as f:
             w = csv.writer(f, delimiter=";")
-            w.writerow(["numero_exp", "fecha_habilitacion", "descripcion_rubro", "calles", "titulares", "cuits"])
-            w.writerow(["EX-1", "01/02/2024", "BAR", "COSTA RICA 5709", "NIDO GASTRONOMIA SRL", A])
-            w.writerow(["EX-2", "01/03/2024", "KIOSCO", "LAVALLE 100;LAVALLE 102", "UNO SA;DOS SA", f"{B};{C}"])
-            w.writerow(["EX-3", "01/03/2024", "KIOSCO", "FLORIDA 1", "SIN CUIT SA", "123"])
-            w.writerow(["EX-4", "01/03/2024", "KIOSCO", "0", "SIN DOMICILIO SA", B])
+            w.writerow(["numero_exp", "fecha_habilitacion", "descripcion_rubro", "DescripcionSubRubro", "calles", "titulares", "cuits"])
+            w.writerow(["EX-1", "01/02/2024", "BAR", "", "COSTA RICA 5709", "NIDO GASTRONOMIA SRL", A])
+            w.writerow(["EX-2", "01/03/2024", "KIOSCO", "", "LAVALLE 100;LAVALLE 102", "UNO SA;DOS SA", f"{B};{C}"])
+            w.writerow(["EX-3", "01/03/2024", "KIOSCO", "", "FLORIDA 1", "SIN CUIT SA", "123"])
+            w.writerow(["EX-4", "01/03/2024", "KIOSCO", "", "0", "SIN DOMICILIO SA", B])
             # caso La Yerra: una habilitacion con dos puertas y una fila por rubro; titular anterior en la misma puerta
-            w.writerow(["EX-5", "2022-02-10", "Restaurante, cantina", "HUMBOLDT 1618;HUMBOLDT 1620", "PORTALES DE BARES SRL", F])
-            w.writerow(["EX-5", "2022-02-10", "Parrilla", "HUMBOLDT 1618;HUMBOLDT 1620", "PORTALES DE BARES SRL", F])
-            w.writerow(["EX-0", "15/03/2016", "Café bar", "HUMBOLDT 1620", "TITULAR VIEJO SA", G])
+            w.writerow(["EX-5", "2022-02-10", "Alimentación en general y gastronomía", "Restaurante, cantina", "HUMBOLDT 1618;HUMBOLDT 1620", "PORTALES DE BARES SRL", F])
+            w.writerow(["EX-5", "2022-02-10", "Alimentación en general y gastronomía", "Parrilla", "HUMBOLDT 1618;HUMBOLDT 1620", "PORTALES DE BARES SRL", F])
+            w.writerow(["EX-0", "15/03/2016", "Café bar", "", "HUMBOLDT 1620", "TITULAR VIEJO SA", G])
         (d / "acumulado2026.csv").write_text("razon_social,domicilio,rubro\nX SA,FLORIDA 2,BAR\n", encoding="utf-8")
         (d / "surtidor.csv").write_text(
             "idempresa,cuit,empresa,direccion,localidad,provincia,producto,empresabandera,fecha_vigencia\n"
