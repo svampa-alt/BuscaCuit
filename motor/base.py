@@ -6,6 +6,7 @@ import csv
 import hashlib
 import io
 import json
+import re
 import sqlite3
 import zipfile
 from datetime import datetime, timezone
@@ -26,7 +27,7 @@ CREATE TABLE IF NOT EXISTS sociedades(
 CREATE TABLE IF NOT EXISTS domicilios(
   cuit TEXT NOT NULL, tipo TEXT NOT NULL, provincia TEXT, localidad TEXT, calle TEXT,
   numero TEXT, piso TEXT, depto TEXT, cp TEXT, estado TEXT, fuente TEXT NOT NULL,
-  nombre_local TEXT, referencia TEXT,
+  nombre_local TEXT, referencia TEXT, titular TEXT, rubro TEXT, fecha TEXT,
   PRIMARY KEY(cuit, tipo, fuente, calle, numero)) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS domicilios_numero ON domicilios(numero, provincia);
 CREATE TABLE IF NOT EXISTS actividades(
@@ -42,7 +43,17 @@ def conectar(ruta, solo_lectura=False):
         return sqlite3.connect(f"file:{ruta}?mode=ro", uri=True)
     db = sqlite3.connect(ruta)
     db.executescript("PRAGMA journal_mode=OFF; PRAGMA synchronous=OFF;" + ESQUEMA)
+    tiene = {f[1] for f in db.execute("PRAGMA table_info(domicilios)")}
+    for columna in ("titular", "rubro", "fecha"):  # bases armadas antes de que existieran
+        if columna not in tiene:
+            db.execute(f"ALTER TABLE domicilios ADD COLUMN {columna} TEXT")
     return db
+
+
+COLS_DOMICILIO = ("cuit", "tipo", "provincia", "localidad", "calle", "numero", "piso", "depto", "cp",
+                  "estado", "fuente", "nombre_local", "referencia", "titular", "rubro", "fecha")
+SQL_DOMICILIO = (f"INSERT OR IGNORE INTO domicilios({','.join(COLS_DOMICILIO)}) "
+                 f"VALUES ({','.join('?' * len(COLS_DOMICILIO))})")
 
 
 def sha256(ruta):
@@ -154,7 +165,7 @@ def importar_sociedades(db, ruta, url=""):
                 for tipo, prefijo in (("fiscal", "dom_fiscal_"), ("legal", "dom_legal_")):
                     d = _domicilio(fila, prefijo)
                     if d[2]:
-                        dom.append((cuit, tipo, *d, "rns", None, None))
+                        dom.append((cuit, tipo, *d, "rns", None, None, None, None, None))
             if len(act) >= 50000:
                 _volcar_sociedades(db, soc, dom, act, nom)
         _volcar_sociedades(db, soc, dom, act, nom)
@@ -164,7 +175,7 @@ def importar_sociedades(db, ruta, url=""):
 
 def _volcar_sociedades(db, soc, dom, act, nom):
     db.executemany("INSERT OR REPLACE INTO sociedades VALUES (?,?,?,?,?)", soc)
-    db.executemany("INSERT OR IGNORE INTO domicilios VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", dom)
+    db.executemany(SQL_DOMICILIO, dom)
     db.executemany("INSERT OR IGNORE INTO actividades VALUES (?,?,?,?)", act)
     db.executemany("INSERT INTO nombres(nombre, cuit, fuente) VALUES (?,?,'rns')", nom)
     for lista in (soc, dom, act, nom):
@@ -180,7 +191,19 @@ ALIAS_LOCALES = {
     "localidad": ("localidad", "barrio", "ciudad", "municipio", "partido"),
     "provincia": ("provincia", "jurisdiccion"),
     "referencia": ("expediente", "numero_expediente", "resolucion", "referencia", "url"),
+    "rubro": ("rubro", "descripcion_rubro", "actividad", "rubro_principal"),
+    "fecha": ("fecha_habilitacion", "fecha", "fecha_alta", "fecha_inicio"),
 }
+
+
+def fecha_iso(valor):
+    """'10/02/2022' o '2022-02-10 ...' -> '2022-02-10'. Lo que no se entiende queda vacio."""
+    valor = (valor or "").strip()
+    m = re.match(r"(\d{4})-(\d{2})-(\d{2})", valor)
+    if m:
+        return m.group(0)
+    m = re.match(r"(\d{1,2})/(\d{1,2})/(\d{4})", valor)
+    return f"{m.group(3)}-{int(m.group(2)):02d}-{int(m.group(1)):02d}" if m else ""
 
 
 def importar_locales(db, ruta_csv, fuente, organismo, provincia="", localidad="", url=""):
@@ -208,10 +231,11 @@ def importar_locales(db, ruta_csv, fuente, organismo, provincia="", localidad=""
                 calle, numero = partir_direccion(dato["direccion"])
             if not calle:
                 continue
-            db.execute("INSERT OR IGNORE INTO domicilios VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            db.execute(SQL_DOMICILIO,
                        (cuit, "local", provincia_canonica(dato["provincia"] or provincia),
                         norm(dato["localidad"] or localidad), calle, numero, "", "", "", "",
-                        fuente, dato["nombre_local"], dato["referencia"]))
+                        fuente, dato["nombre_local"], dato["referencia"], dato["titular"],
+                        dato["rubro"], fecha_iso(dato["fecha"])))
             for nombre in {dato["nombre_local"], dato["titular"]} - {""}:
                 db.execute("INSERT INTO nombres(nombre, cuit, fuente) VALUES (?,?,?)", (nombre, cuit, fuente))
             guardadas += 1

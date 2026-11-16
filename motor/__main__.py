@@ -96,16 +96,21 @@ def lote(args):
             open(args.salida, "w", encoding="utf-8", newline="") as g:
         salida = csv.writer(g)
         salida.writerow(["nombre", "direccion", "localidad", "provincia", "estado", "cuit",
-                         "razon_social", "puntaje", "candidatos_totales", "evidencias"])
+                         "razon_social", "puntaje", "candidatos_totales", "evidencias",
+                         "referencia", "rubro", "fecha", "otros_cuit_en_la_direccion"])
         for fila in csv.DictReader(f):
             q = {k: (fila.get(k) or "").strip() for k in ("nombre", "direccion", "localidad", "provincia")}
             if not (q["nombre"] or q["direccion"]):
                 continue
-            r = buscar(db, **q, limite=1)
+            r = buscar(db, **q, limite=6)
             m = r["candidatos"][0] if r["candidatos"] else {}
+            dom = next((e for e in m.get("evidencias", []) if e["tipo"] == "domicilio_coincide"), {})
+            otros = [c["cuit"] for c in r["candidatos"][1:] if c["estado"] == "CONFIRMADO"]
             salida.writerow([*q.values(), r["estado"], m.get("cuit", ""), m.get("razon_social", ""),
                              m.get("puntaje", ""), r["candidatos_totales"],
-                             "; ".join(e["tipo"] + ":" + e.get("fuente", "") for e in m.get("evidencias", []))])
+                             "; ".join(e["tipo"] + ":" + e.get("fuente", "") for e in m.get("evidencias", [])),
+                             dom.get("referencia") or "", dom.get("rubro") or "", dom.get("fecha") or "",
+                             " ".join(otros)])
 
 
 def main():

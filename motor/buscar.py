@@ -12,7 +12,7 @@ ORDEN = {"CONFIRMADO": 3, "ALTA_CONFIANZA": 2, "POSIBLE": 1, "NO_VERIFICADO": 0}
 GASTRONOMIA = {"BAR", "CAFE", "RESTAURANTE", "RESTO", "PARRILLA", "PIZZERIA", "CERVECERIA",
                "HELADERIA", "BODEGON"}
 COLS_DOM = ("cuit", "tipo", "provincia", "localidad", "calle", "numero", "piso", "depto", "cp",
-            "estado", "fuente", "nombre_local", "referencia")
+            "estado", "fuente", "nombre_local", "referencia", "titular", "rubro", "fecha")
 
 
 def _fts(db, consulta, limite):
@@ -60,7 +60,7 @@ def buscar(db, nombre="", direccion="", localidad="", provincia="", cuit="", lim
 
     def c(numero):
         return cand.setdefault(numero, {"cuit": numero, "puntaje": 0.0, "evidencias": [],
-                                        "_nombre": 0.0, "_dom": None})
+                                        "_nombre": 0.0, "_dom": None, "_fecha": "", "_titular": ""})
 
     digitos = solo_digitos(cuit)
     if len(digitos) == 11:
@@ -74,7 +74,11 @@ def buscar(db, nombre="", direccion="", localidad="", provincia="", cuit="", lim
         item["evidencias"].append({
             "tipo": "domicilio_coincide", "clase_domicilio": d["tipo"], "fuente": d["fuente"],
             "domicilio": f'{d["calle"]} {d["numero"]}, {d["localidad"]}, {d["provincia"]}',
-            "nombre_local": d["nombre_local"], "referencia": d["referencia"]})
+            "nombre_local": d["nombre_local"], "referencia": d["referencia"],
+            "titular": d["titular"], "rubro": d["rubro"], "fecha": d["fecha"]})
+        if d["tipo"] == "local":
+            item["_titular"] = item["_titular"] or d["titular"] or ""
+            item["_fecha"] = max(item["_fecha"], d["fecha"] or "")
 
     filas, toks = _por_nombre(db, nombre) if nombre else ([], [])
     for texto, numero, fuente in filas:
@@ -88,9 +92,19 @@ def buscar(db, nombre="", direccion="", localidad="", provincia="", cuit="", lim
             item["evidencias"].append({"tipo": "nombre_coincide", "fuente": fuente,
                                        "nombre": texto, "similitud": p})
 
+    # Varios titulares habilitados en la misma direccion: el mas reciente es el mas probable hoy.
+    fechas = sorted({i["_fecha"] for i in cand.values() if i["_dom"] == "local" and i["_fecha"]})
     rubro_gastro = bool(set(norm(nombre).split()) & GASTRONOMIA)
     for numero, item in cand.items():
         _enriquecer(db, item)
+        if len(fechas) > 1 and item["_dom"] == "local" and item["_fecha"]:
+            if item["_fecha"] == fechas[-1]:
+                item["puntaje"] += 5
+                item["evidencias"].append({"tipo": "habilitacion_mas_reciente", "fecha": item["_fecha"],
+                                           "nota": "hay otros titulares habilitados antes en esta direccion"})
+            else:
+                item["evidencias"].append({"tipo": "habilitacion_anterior", "fecha": item["_fecha"],
+                                           "nota": f"hay una habilitacion posterior ({fechas[-1]}) en esta direccion"})
         puntos = 60 * item["_nombre"]
         if item["_dom"]:
             puntos += 100 if item["_dom"] == "local" else 80
@@ -112,8 +126,9 @@ def buscar(db, nombre="", direccion="", localidad="", provincia="", cuit="", lim
         item["estado"] = _estado(item)
 
     orden = sorted(cand.values(), key=lambda i: (ORDEN[i["estado"]], i["puntaje"]), reverse=True)[:limite]
-    for item in orden:
-        item.pop("_nombre"), item.pop("_dom")
+    for item in cand.values():
+        for clave in ("_nombre", "_dom", "_fecha", "_titular"):
+            item.pop(clave)
     mejor = orden[0]["estado"] if orden else "NO_VERIFICADO"
     return {
         "consulta": {"nombre": nombre, "direccion": direccion, "localidad": localidad,
@@ -146,7 +161,7 @@ def _enriquecer(db, item):
     soc = db.execute("SELECT razon_social, tipo, fecha_contrato FROM sociedades WHERE cuit=?",
                      (numero,)).fetchone()
     item["cuit_valido"] = cuit_valido(numero)
-    item["razon_social"] = (soc[0] if soc else None) or (fila[0] if fila else None)
+    item["razon_social"] = (soc[0] if soc else None) or (fila[0] if fila else None) or item["_titular"] or None
     item["en_padron_arca"] = bool(fila)
     if not fila:
         item["evidencias"].append({"tipo": "ausente_en_padron_arca",

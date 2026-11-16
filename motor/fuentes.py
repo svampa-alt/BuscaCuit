@@ -21,6 +21,7 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .base import SQL_DOMICILIO, fecha_iso
 from .texto import cuit_valido, norm, partir_direccion, provincia_canonica, solo_digitos
 
 csv.field_size_limit(10 ** 8)
@@ -124,7 +125,7 @@ _RE_DOM = re.compile(r"^[^;]*[A-Za-zÁ-ú][^;]*\s\d{1,5}(\s*;[^;]*\s\d{1,5})*\s*
 
 
 def _filas_gcba(ruta):
-    """Genera (calles, titulares, cuits, rubro, expediente) de un CSV de habilitaciones."""
+    """Genera (calles, titulares, cuits, rubro, expediente, fecha) de un CSV de habilitaciones."""
     lector = csv.reader(io.StringIO(_texto(Path(ruta).read_bytes())), delimiter=";")
     cab = [h.strip().lower().replace("_", "") for h in next(lector, [])]
     pos = {h: i for i, h in enumerate(cab)}
@@ -133,14 +134,15 @@ def _filas_gcba(ruta):
         print(f"  aviso: {Path(ruta).name} no trae calles, titulares y cuits; se saltea")
         return
     i_exp = pos.get("numeroexp", pos.get("numeroexpediente"))
-    i_rubro = pos.get("descripcionrubro")
+    i_rubro, i_fecha = pos.get("descripcionrubro"), pos.get("fechahabilitacion")
     for fila in lector:
         if not roto:
             if len(fila) < len(cab):
                 continue
             yield (fila[pos["calles"]], fila[pos["titulares"]], fila[pos["cuits"]],
                    fila[i_rubro] if i_rubro is not None else "",
-                   fila[i_exp] if i_exp is not None else "")
+                   fila[i_exp] if i_exp is not None else "",
+                   fila[i_fecha] if i_fecha is not None else "")
             continue
         # Formato roto: se ubica la celda de CUIT y se retrocede hasta el domicilio.
         i_cuit = next((i for i in range(len(fila) - 1, 8, -1)
@@ -153,15 +155,22 @@ def _filas_gcba(ruta):
         if not _RE_DOM.match(fila[j]):
             continue
         yield (fila[j], ",".join(fila[j + 1:i_cuit]), fila[i_cuit],
-               fila[9] if len(fila) > 9 else "", fila[7] if len(fila) > 7 else "")
+               fila[9] if len(fila) > 9 else "", fila[7] if len(fila) > 7 else "",
+               fila[5] if len(fila) > 5 else "")
 
 
 def leer_gcba(rutas):
-    """Una fila por (CUIT, domicilio). Cada habilitacion puede traer varios de ambos."""
+    """Una fila por (CUIT, domicilio), con la habilitacion mas reciente y hasta tres rubros.
+
+    El archivo trae una fila por rubro, y cada habilitacion puede tener varios titulares
+    y varios domicilios.
+    """
+    locales = {}
     for ruta in rutas:
-        for calles, titulares, cuits, _rubro, exp in _filas_gcba(ruta):
+        for calles, titulares, cuits, rubro, exp, fecha in _filas_gcba(ruta):
             lista_c = [x.strip() for x in cuits.split(";") if x.strip()]
             lista_t = [x.strip() for x in titulares.split(";")]
+            rubro, fecha = " ".join(rubro.split()), fecha_iso(fecha)
             for i, crudo in enumerate(lista_c):
                 cuit = _cuit(crudo)
                 if not cuit:
@@ -169,10 +178,19 @@ def leer_gcba(rutas):
                 titular = lista_t[i] if len(lista_t) == len(lista_c) else titulares.strip()
                 for domicilio in calles.split(";"):
                     calle, numero = partir_direccion(domicilio)
-                    if re.search("[A-Z]", calle):  # hay filas con "0" como domicilio
-                        yield {"cuit": cuit, "titular": " ".join(titular.split()), "nombre_local": "",
-                               "calle": calle, "numero": numero, "localidad": "", "provincia": "CABA",
-                               "referencia": " ".join(exp.split())}
+                    if not re.search("[A-Z]", calle):  # hay filas con "0" como domicilio
+                        continue
+                    f = locales.setdefault((cuit, calle, numero), {
+                        "cuit": cuit, "titular": " ".join(titular.split()), "nombre_local": "",
+                        "calle": calle, "numero": numero, "localidad": "", "provincia": "CABA",
+                        "referencia": "", "fecha": "", "_rubros": []})
+                    if rubro and rubro not in f["_rubros"] and len(f["_rubros"]) < 3:
+                        f["_rubros"].append(rubro)
+                    if fecha >= f["fecha"]:
+                        f["fecha"], f["referencia"] = fecha, " ".join(exp.split())
+    for f in locales.values():
+        f["rubro"] = " / ".join(f.pop("_rubros"))
+        yield f
 
 
 def leer_energia(rutas):
@@ -190,7 +208,8 @@ def leer_energia(rutas):
                 yield {"cuit": cuit, "titular": (r.get("empresa") or "").strip(),
                        "nombre_local": (r.get("empresabandera") or "").strip(),
                        "calle": calle, "numero": numero, "localidad": norm(r.get("localidad")),
-                       "provincia": provincia_canonica(r.get("provincia")), "referencia": ident}
+                       "provincia": provincia_canonica(r.get("provincia")), "referencia": ident,
+                       "rubro": "ESTACION DE SERVICIO", "fecha": fecha_iso(r.get("fecha_vigencia"))}
 
 
 def _csv_sepa(z, nombre):
@@ -235,7 +254,8 @@ def leer_sepa(rutas):
                            "localidad": norm(r.get("sucursales_localidad")),
                            "provincia": _PROV_ISO.get((r.get("sucursales_provincia") or "")[-1:].upper(), ""),
                            "referencia": "-".join(str(r.get(k) or "") for k in
-                                                  ("id_comercio", "id_bandera", "id_sucursal"))}
+                                                  ("id_comercio", "id_bandera", "id_sucursal")),
+                           "rubro": norm(r.get("sucursales_tipo")), "fecha": ""}
 
 
 LECTORES = {"gcba_hab": leer_gcba, "energia": leer_energia, "sepa": leer_sepa}
@@ -253,7 +273,8 @@ def importar(db, fuente, rutas, urls=()):
     locales, nombres, guardados = [], set(), 0
     for f in LECTORES[fuente](rutas):
         locales.append((f["cuit"], "local", f["provincia"], f["localidad"], f["calle"], f["numero"],
-                        "", "", "", "", fuente, f["nombre_local"], f["referencia"]))
+                        "", "", "", "", fuente, f["nombre_local"], f["referencia"], f["titular"],
+                        f["rubro"], f["fecha"]))
         nombres.add((f["titular"], f["cuit"]))
         if fuente == "sepa":  # la bandera identifica a la cadena; en estaciones es de la petrolera
             nombres.add((f["nombre_local"], f["cuit"]))
@@ -276,6 +297,6 @@ def importar(db, fuente, rutas, urls=()):
 
 def _volcar(db, locales):
     antes = db.total_changes
-    db.executemany("INSERT OR IGNORE INTO domicilios VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", locales)
+    db.executemany(SQL_DOMICILIO, locales)
     locales.clear()
     return db.total_changes - antes

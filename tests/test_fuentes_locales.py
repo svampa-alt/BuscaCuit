@@ -11,6 +11,7 @@ from motor.buscar import buscar
 
 # CUIT con digito verificador correcto
 A, B, C, D, E = "30500000127", "30500000224", "30500000321", "30500000429", "30500000526"
+F, G = "30717089126", "30500000623"
 
 
 class FuentesLocalesTests(unittest.TestCase):
@@ -25,6 +26,10 @@ class FuentesLocalesTests(unittest.TestCase):
             w.writerow(["EX-2", "01/03/2024", "KIOSCO", "LAVALLE 100;LAVALLE 102", "UNO SA;DOS SA", f"{B};{C}"])
             w.writerow(["EX-3", "01/03/2024", "KIOSCO", "FLORIDA 1", "SIN CUIT SA", "123"])
             w.writerow(["EX-4", "01/03/2024", "KIOSCO", "0", "SIN DOMICILIO SA", B])
+            # caso La Yerra: una habilitacion con dos puertas y una fila por rubro; titular anterior en la misma puerta
+            w.writerow(["EX-5", "2022-02-10", "Restaurante, cantina", "HUMBOLDT 1618;HUMBOLDT 1620", "PORTALES DE BARES SRL", F])
+            w.writerow(["EX-5", "2022-02-10", "Parrilla", "HUMBOLDT 1618;HUMBOLDT 1620", "PORTALES DE BARES SRL", F])
+            w.writerow(["EX-0", "15/03/2016", "Café bar", "HUMBOLDT 1620", "TITULAR VIEJO SA", G])
         (d / "acumulado2026.csv").write_text("razon_social,domicilio,rubro\nX SA,FLORIDA 2,BAR\n", encoding="utf-8")
         (d / "surtidor.csv").write_text(
             "idempresa,cuit,empresa,direccion,localidad,provincia,producto,empresabandera,fecha_vigencia\n"
@@ -55,8 +60,8 @@ class FuentesLocalesTests(unittest.TestCase):
         cls.tmp.cleanup()
 
     def test_cantidades(self):
-        # GCBA: 1 + (2 CUIT x 2 domicilios); la fila con CUIT invalido y el padron sin CUIT no entran
-        self.assertEqual((self.n_gcba, self.n_energia, self.n_sepa), (5, 1, 2))
+        # GCBA: 1 + (2 CUIT x 2 domicilios) + 2 puertas + 1 titular anterior; la fila con CUIT invalido y el padron sin CUIT no entran
+        self.assertEqual((self.n_gcba, self.n_energia, self.n_sepa), (8, 1, 2))
 
     def test_gcba_confirma_por_direccion_aunque_el_nombre_no_coincida(self):
         r = buscar(self.db, "El Nido Bar", "Costa Rica 5709", provincia="CABA")
@@ -64,6 +69,30 @@ class FuentesLocalesTests(unittest.TestCase):
         self.assertEqual(r["candidatos"][0]["cuit"], A)
         ev = [e for e in r["candidatos"][0]["evidencias"] if e["tipo"] == "domicilio_coincide"][0]
         self.assertEqual((ev["fuente"], ev["referencia"]), ("gcba_hab", "EX-1"))
+
+    def test_local_con_dos_puertas_y_titular_anterior(self):
+        r = buscar(self.db, "La Yerra", "Humboldt 1620", provincia="CABA")
+        primero, segundo = r["candidatos"][:2]
+        self.assertEqual((r["estado"], primero["cuit"], segundo["cuit"]), ("CONFIRMADO", F, G))
+        self.assertEqual(primero["razon_social"], "PORTALES DE BARES SRL")  # sin padron: sale del titular
+        ev = [e for e in primero["evidencias"] if e["tipo"] == "domicilio_coincide"][0]
+        self.assertEqual((ev["referencia"], ev["fecha"], ev["rubro"]),
+                         ("EX-5", "2022-02-10", "Restaurante, cantina / Parrilla"))
+        self.assertIn("habilitacion_mas_reciente", [e["tipo"] for e in primero["evidencias"]])
+        self.assertIn("habilitacion_anterior", [e["tipo"] for e in segundo["evidencias"]])
+
+    def test_base_vieja_se_actualiza_sola(self):
+        import sqlite3
+        ruta = Path(self.tmp.name) / "vieja.sqlite"
+        v = sqlite3.connect(ruta)
+        v.execute("CREATE TABLE domicilios(cuit TEXT NOT NULL, tipo TEXT NOT NULL, provincia TEXT, localidad TEXT,"
+                  " calle TEXT, numero TEXT, piso TEXT, depto TEXT, cp TEXT, estado TEXT, fuente TEXT NOT NULL,"
+                  " nombre_local TEXT, referencia TEXT, PRIMARY KEY(cuit, tipo, fuente, calle, numero)) WITHOUT ROWID")
+        v.commit(), v.close()
+        db = base.conectar(ruta)
+        fuentes.importar(db, "energia", [Path(self.tmp.name) / "surtidor.csv"])
+        self.assertEqual(buscar(db, "YPF", "San Martin 1500", "Rosario", "Santa Fe")["candidatos"][0]["cuit"], D)
+        db.close()
 
     def test_gcba_titulares_emparejados_con_su_cuit(self):
         r = buscar(self.db, "Dos", "Lavalle 102", provincia="CABA")
