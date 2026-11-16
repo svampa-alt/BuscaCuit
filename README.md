@@ -59,3 +59,10 @@ python -m motor construir --padron omitir --sociedades omitir --locales fuente=h
 - `--locales` incorpora cualquier CSV de habilitaciones o locales que traiga CUIT.
 
 Los scripts de `scripts/` y `buscacuit.py` son la version anterior y quedan hasta migrar sus usos.
+
+## cuit-finder (`cuit-finder/`)
+Buscador anterior e independiente: parte del nombre de fantasía y la dirección,
+con sus propias bases locales en SQLite y sus pruebas. Se guarda acá para que
+todo lo de CUIT quede en un solo repositorio. No está integrado con `motor/`;
+se usa desde su carpeta (`cd cuit-finder` y `python -m cuitfinder ...`).
+Detalle: `cuit-finder/README.md`.

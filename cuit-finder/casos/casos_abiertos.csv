@@ -1,0 +1,4 @@
+nombre,direccion,nota
+El Nido Bar,"Costa Rica 5709, Palermo, CABA",caso de control de BuscaCuit; titular no confirmado
+Parrilla Don Julio,"Guatemala 4691, Palermo, CABA",titular no confirmado
+Pizzería Güerrin,"Av. Corrientes 1368, CABA",una búsqueda web sugería Corrientes 1368 SA; el programa encuentra Guerrin SA con domicilio fiscal ahí

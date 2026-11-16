@@ -1,0 +1,30 @@
+grupo,nombre,direccion,cuit_esperado,nota
+A-nombre-parecido,Café Tortoni,"Av. de Mayo 825, CABA",30535375131,Gran Café Tortoni SRL; dirección de conocimiento público
+A-nombre-parecido,Alvear Palace Hotel,"Av. Alvear 1891, Recoleta, CABA",30527225988,Alvear Palace Hotel SAI; dirección de conocimiento público
+A-nombre-parecido,Hospital Alemán,"Av. Pueyrredón 1640, CABA",30545843036,Hospital Alemán Asociación Civil; dirección de conocimiento público
+A-nombre-parecido,Galerías Pacífico,"Florida 753, CABA",30636754362,Galerías Pacífico SA; dirección de conocimiento público
+A-nombre-parecido,Mercado Libre,"Av. Caseros 3039, Parque Patricios, CABA",30703088534,MercadoLibre SRL; dirección de conocimiento público
+A-nombre-parecido,Frávega,"Valentín Gómez 2813, CABA",30526874249,Frávega SACIEI; dirección de conocimiento público
+A-nombre-parecido,Arcor,"Av. Fulvio Pagani 487, Arroyito, Córdoba",30502793175,Arcor SAIC; dirección de conocimiento público
+A-nombre-parecido,Sancor,"Tte. Gral. Richieri 15, Sunchales, Santa Fe",30501677643,Sancor Cooperativas Unidas Ltda; dirección de conocimiento público
+B-fantasia-distinta,El Ateneo Grand Splendid,"Av. Santa Fe 1860, CABA",30654386192,Grupo Ilhsa SA; dirección de conocimiento público
+B-fantasia-distinta,Hospital Italiano,"Tte. Gral. Juan D. Perón 4190, Almagro, CABA",30545867679,Sociedad Italiana de Beneficencia en Buenos Aires; dirección de conocimiento público
+B-fantasia-distinta,Diario Clarín,"Piedras 1743, CABA",30500124152,Arte Gráfico Editorial Argentino SA; dirección de conocimiento público
+B-fantasia-distinta,Telefe,"Pavón 2444, CABA",30636529164,Televisión Federal SA; dirección de conocimiento público
+B-fantasia-distinta,Canal 13 El Trece,"Lima 1261, CABA",30636989254,Arte Radiotelevisivo Argentino SA; dirección de conocimiento público
+B-fantasia-distinta,La Serenísima,"Almirante Brown 957, General Rodríguez, Buenos Aires",30547242331,Mastellone Hnos SA; dirección de conocimiento público
+B-fantasia-distinta,McDonald's,"José Pedro Varela 4870, Villa Devoto, CABA",30610252334,Arcos Dorados Argentina SA; dirección tomada de habilitaciones GCBA
+B-fantasia-distinta,McDonald's,"Quevedo 3365, CABA",30610252334,Arcos Dorados Argentina SA; dirección tomada de habilitaciones GCBA
+C-cadena-en-shopping,Starbucks,"Junín 1960, Recoleta, CABA",30710040520,Starbucks Coffee Argentina SRL; dirección tomada de habilitaciones GCBA
+C-cadena-en-shopping,Havanna,"Godoy Cruz 2620, Palermo, CABA",33697235049,Havanna SA; dirección tomada de habilitaciones GCBA
+C-cadena-en-shopping,Freddo,"Av. Santa Fe 3253, Palermo, CABA",30701965554,Freddo SA; dirección tomada de habilitaciones GCBA
+D-bandera,Carrefour Express,"Nazca 1944, CABA",30687310434,INC SA; dirección tomada de SEPA
+D-bandera,Carrefour Market,"De los Ceibos 233, Ciudad Jardín El Palomar, Buenos Aires",30687310434,INC SA; dirección tomada de SEPA
+D-bandera,La Anónima,"Pilcomayo 1551, Santa Rosa, La Pampa",30506730038,SA Importadora y Exportadora de la Patagonia; dirección tomada de SEPA
+D-bandera,Farmacity,"Av. Vélez Sarsfield 3335, Córdoba",30692138747,Farmcity SA; dirección tomada de SEPA
+D-bandera,Simplicity,"25 de Mayo 1149, Gualeguaychú, Entre Ríos",30692138747,Farmcity SA; dirección tomada de SEPA
+D-bandera,Changomas,"Av. Colón 6051, Córdoba",30678138300,Dorinka SRL; dirección tomada de SEPA
+D-bandera,California Supermercados,"Av. Lavalle 5495, Posadas, Misiones",30539523410,California SA; dirección tomada de SEPA
+D-bandera,Shell,"Av. San Martín 1115, Villa Carlos Paz, Córdoba",20117759696,operador de la estación; dirección tomada de Energía
+D-bandera,Shell,"Mariano Castex 425, Ezeiza, Buenos Aires",30705740670,Mavisur SA; dirección tomada de Energía
+D-bandera,Gulf,"Presidente Perón 2130, San Nicolás, Buenos Aires",30709173673,Famega SA; dirección tomada de Energía

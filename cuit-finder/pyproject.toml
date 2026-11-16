@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cuit-finder"
+version = "0.1.0"
+description = "Busca el CUIT de un comercio argentino por nombre de fantasía y dirección, con bases locales y un método determinístico."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+cuitfinder = "cuitfinder.cli:main"
+
+[tool.setuptools]
+packages = ["cuitfinder"]

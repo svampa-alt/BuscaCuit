@@ -1,0 +1,12 @@
+# Bases y archivos descargados: pesan GB y contienen padrones con datos
+# personales. Se reconstruyen con `python -m cuitfinder actualizar`.
+data/
+# Alias confirmados por el usuario (datos propios).
+alias.csv
+
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
