@@ -24,6 +24,7 @@ class FuentesLocalesTests(unittest.TestCase):
             w.writerow(["EX-1", "01/02/2024", "BAR", "COSTA RICA 5709", "NIDO GASTRONOMIA SRL", A])
             w.writerow(["EX-2", "01/03/2024", "KIOSCO", "LAVALLE 100;LAVALLE 102", "UNO SA;DOS SA", f"{B};{C}"])
             w.writerow(["EX-3", "01/03/2024", "KIOSCO", "FLORIDA 1", "SIN CUIT SA", "123"])
+            w.writerow(["EX-4", "01/03/2024", "KIOSCO", "0", "SIN DOMICILIO SA", B])
         (d / "acumulado2026.csv").write_text("razon_social,domicilio,rubro\nX SA,FLORIDA 2,BAR\n", encoding="utf-8")
         (d / "surtidor.csv").write_text(
             "idempresa,cuit,empresa,direccion,localidad,provincia,producto,empresabandera,fecha_vigencia\n"
@@ -34,7 +35,7 @@ class FuentesLocalesTests(unittest.TestCase):
         with zipfile.ZipFile(interno, "w") as z:
             z.writestr("comercio.csv",
                        "id_comercio|id_bandera|comercio_cuit|comercio_razon_social|comercio_bandera_nombre\n"
-                       f"10|3|{E}|INC S.A.|Carrefour Express\n\nUltima actualizacion: hoy\n")
+                       f"10|3|{E}|INC S.A.|Carrefour\x00 Express\n\nUltima actualizacion: hoy\n")
             z.writestr("sucursales.csv",
                        "id_comercio|id_bandera|id_sucursal|sucursales_tipo|sucursales_calle|sucursales_numero|"
                        "sucursales_localidad|sucursales_provincia\n"

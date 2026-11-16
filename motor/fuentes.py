@@ -108,6 +108,7 @@ def descargar(fuente, carpeta):
 # ------------------------------------------------------------------ lectura
 
 def _texto(datos):
+    datos = datos.replace(b"\x00", b"")  # hay archivos con bytes nulos; csv de Python < 3.11 falla
     try:
         return datos.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -168,7 +169,7 @@ def leer_gcba(rutas):
                 titular = lista_t[i] if len(lista_t) == len(lista_c) else titulares.strip()
                 for domicilio in calles.split(";"):
                     calle, numero = partir_direccion(domicilio)
-                    if calle:
+                    if re.search("[A-Z]", calle):  # hay filas con "0" como domicilio
                         yield {"cuit": cuit, "titular": " ".join(titular.split()), "nombre_local": "",
                                "calle": calle, "numero": numero, "localidad": "", "provincia": "CABA",
                                "referencia": " ".join(exp.split())}
