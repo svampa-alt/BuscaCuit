@@ -1,5 +1,6 @@
 """Uso:
   python -m motor construir [--padron ZIP] [--sociedades ZIP] [--locales fuente=archivo.csv ...]
+                             [--oficiales gcba_hab,energia,sepa | omitir] [--crudos CARPETA]
   python -m motor buscar --nombre "El Nido Bar" --direccion "Costa Rica 5709" --provincia CABA
   python -m motor lote entrada.csv salida.csv     (columnas: nombre,direccion,localidad,provincia)
   python -m motor resumen
@@ -11,7 +12,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-from . import base
+from . import base, fuentes
 from .buscar import buscar
 
 PADRON_URLS = ("https://www.afip.gob.ar/genericos/cInscripcion/archivos/apellidoNombreDenominacion.zip",
@@ -66,6 +67,22 @@ def construir(args):
                 url = url_sociedades()
                 ruta = bajar(url, Path(tmp) / "sociedades.zip")
             print("sociedades:", base.importar_sociedades(db, ruta, url), "CUIT")
+        oficiales = [] if args.oficiales == "omitir" else [x.strip() for x in args.oficiales.split(",") if x.strip()]
+        for fuente in oficiales:
+            if fuente not in fuentes.CATALOGO:
+                raise SystemExit(f"Fuente desconocida: {fuente}. Opciones: {', '.join(fuentes.CATALOGO)}")
+            try:  # una fuente caida no frena al resto de la base
+                carpeta = (args.crudos / fuente) if args.crudos else None
+                listos = sorted(p for p in carpeta.iterdir() if p.suffix.lower() in (".csv", ".zip")) \
+                    if carpeta and carpeta.is_dir() else []
+                if listos:
+                    rutas, urls = listos, []
+                else:
+                    bajados = fuentes.descargar(fuente, carpeta or Path(tmp) / fuente)
+                    rutas, urls = [b[0] for b in bajados], [b[1] for b in bajados]
+                print(fuente + ":", fuentes.importar(db, fuente, rutas, urls), "locales con CUIT")
+            except Exception as e:
+                print(f"{fuente}: NO se pudo incorporar ({e}); la base queda sin esta fuente")
     for spec in args.locales:
         fuente, archivo = spec.split("=", 1)
         print(fuente + ":", base.importar_locales(db, archivo, fuente, fuente), "locales con CUIT")
@@ -100,6 +117,10 @@ def main():
     c.add_argument("--padron", default="", help="ZIP local; vacio descarga; 'omitir' lo saltea")
     c.add_argument("--sociedades", default="", help="ZIP/CSV local; vacio descarga; 'omitir' lo saltea")
     c.add_argument("--locales", action="append", default=[], help="fuente=archivo.csv (habilitaciones con CUIT)")
+    c.add_argument("--oficiales", default=",".join(fuentes.CATALOGO),
+                   help="fuentes de locales que se bajan solas (lista separada por comas) u 'omitir'")
+    c.add_argument("--crudos", type=Path, default=None,
+                   help="carpeta donde guardar/reusar las descargas (una subcarpeta por fuente)")
     b = sub.add_parser("buscar")
     for campo in ("nombre", "direccion", "localidad", "provincia", "cuit"):
         b.add_argument("--" + campo, default="")

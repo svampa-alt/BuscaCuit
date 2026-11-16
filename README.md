@@ -45,7 +45,7 @@ No subir padrones personales ni datos privados al repositorio.
 Una sola base SQLite local (no se versiona ni se publica) y un solo buscador.
 
 ```bash
-python -m motor construir            # baja padron ARCA y Registro Nacional de Sociedades (~2 min, ~1,8 GB)
+python -m motor construir            # baja padron ARCA, sociedades y las fuentes de locales (ver abajo)
 python -m motor buscar --nombre "El Nido Bar" --direccion "Costa Rica 5709" --provincia CABA
 python -m motor lote entrada.csv salida.csv   # columnas: nombre,direccion,localidad,provincia
 python -m motor construir --padron omitir --sociedades omitir --locales fuente=habilitaciones.csv
@@ -57,6 +57,18 @@ python -m motor construir --padron omitir --sociedades omitir --locales fuente=h
 - Estados: `CONFIRMADO` (habilitacion oficial con CUIT en esa direccion), `ALTA_CONFIANZA`
   (nombre y domicilio), `POSIBLE` (solo domicilio o solo nombre), `NO_VERIFICADO`.
 - `--locales` incorpora cualquier CSV de habilitaciones o locales que traiga CUIT.
+- `construir` baja solo tres fuentes que vinculan un local con el CUIT de su titular
+  (`motor/fuentes.py`). Cuentan como domicilio de local, o sea `CONFIRMADO` si la direccion coincide:
+
+  | Id | Fuente | Alcance |
+  |---|---|---|
+  | `gcba_hab` | Habilitaciones aprobadas del GCBA 2015-2024 | CABA, cualquier rubro |
+  | `energia` | Precios en surtidor, Secretaria de Energia | Estaciones de servicio de todo el pais |
+  | `sepa` | Precios Claros (base SEPA) | Sucursales de cadenas de todo el pais |
+
+  `--oficiales gcba_hab,sepa` elige cuales; `--oficiales omitir` las saltea. `--crudos CARPETA` guarda
+  las descargas (una subcarpeta por fuente) y las reusa la proxima vez. Si una fuente no responde,
+  se avisa y la base se arma con el resto.
 
 Los scripts de `scripts/` y `buscacuit.py` son la version anterior y quedan hasta migrar sus usos.
 
